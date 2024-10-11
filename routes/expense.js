@@ -92,6 +92,40 @@ router.post(
   },
 );
 
+// Obtener todos los gastos de una partida específica
+router.get(
+  "/parts/:part_id/expenses",
+  verifyToken,
+  verifyRole(["admin", "user"]),
+  async (req, res) => {
+    const partId = req.params.part_id;
+    try {
+      const expenses = await Expense.findAll({ where: { partId } });
+      res.json(expenses);
+    } catch (error) {
+      res.status(500).json({ message: "Error al obtener los gastos", error });
+    }
+  },
+);
+
+// Obtener un gasto por ID
+router.get(
+  "/expenses/:id",
+  verifyToken,
+  verifyRole(["admin", "user"]),
+  async (req, res) => {
+    try {
+      const expense = await Expense.findByPk(req.params.id);
+      if (!expense) {
+        return res.status(404).json({ message: "Gasto no encontrado" });
+      }
+      res.json(expense);
+    } catch (error) {
+      res.status(500).json({ message: "Error al obtener el gasto", error });
+    }
+  },
+);
+
 // Actualizar un gasto
 router.put(
   "/expenses/:id",
@@ -192,6 +226,114 @@ router.delete(
       res.json({ message: "Gasto eliminado con éxito" });
     } catch (error) {
       res.status(500).json({ message: "Error al eliminar el gasto", error });
+    }
+  },
+);
+
+// Subir y comprimir un archivo asociado a un gasto
+router.post(
+  "/expenses/:id/upload",
+  verifyToken,
+  verifyRole(["admin", "user"]),
+  upload.single("receipt"),
+  async (req, res) => {
+    try {
+      const expense = await Expense.findByPk(req.params.id);
+      if (!expense) {
+        return res.status(404).json({ message: "Gasto no encontrado" });
+      }
+
+      const filePath = path.join(
+        process.env.RECEIPT_STORAGE_PATH,
+        req.file.filename,
+      );
+      const compressedFilePath = `${filePath}.gz`;
+
+      // Comprimir el archivo
+      const fileContents = fs.createReadStream(filePath);
+      const writeStream = fs.createWriteStream(compressedFilePath);
+      const gzip = zlib.createGzip();
+
+      fileContents
+        .pipe(gzip)
+        .pipe(writeStream)
+        .on("finish", async (err) => {
+          if (err) {
+            return res
+              .status(500)
+              .json({ message: "Error al comprimir el archivo", error: err });
+          }
+
+          // Guardar la URL del archivo comprimido en la base de datos
+          const receiptUrl = `${process.env.RECEIPT_STORAGE_PATH}/${path.basename(compressedFilePath)}`;
+          await expense.update({ receiptUrl });
+
+          // Eliminar el archivo original no comprimido si ya no es necesario
+          fs.unlink(filePath, (err) => {
+            if (err)
+              console.error("Error al eliminar el archivo original", err);
+          });
+
+          res.json({
+            message: "Archivo subido y comprimido con éxito",
+            receiptUrl,
+          });
+        });
+    } catch (error) {
+      res.status(500).json({ message: "Error al subir el archivo", error });
+    }
+  },
+);
+
+// Descargar y descomprimir un archivo asociado a un gasto
+router.get(
+  "/:id/receipt",
+  verifyToken,
+  verifyRole(["admin", "user"]),
+  async (req, res) => {
+    try {
+      const expense = await Expense.findByPk(req.params.id);
+
+      if (!expense || !expense.receiptUrl) {
+        return res
+          .status(404)
+          .json({ message: "Gasto o recibo no encontrado" });
+      }
+
+      const compressedFilePath = path.join(
+        process.env.RECEIPT_STORAGE_PATH,
+        path.basename(expense.receiptUrl),
+      );
+
+      // Verificar si el archivo existe
+      if (!fs.existsSync(compressedFilePath)) {
+        return res.status(404).json({ message: "Archivo no encontrado" });
+      }
+
+      // Usamos la extensión original almacenada en la base de datos para determinar el tipo de contenido
+      let contentType = "application/octet-stream"; // Valor por defecto
+
+      if (expense.receiptExtension === ".png") contentType = "image/png";
+      else if (
+        expense.receiptExtension === ".jpg" ||
+        expense.receiptExtension === ".jpeg"
+      )
+        contentType = "image/jpeg";
+      else if (expense.receiptExtension === ".pdf")
+        contentType = "application/pdf";
+
+      // Establecer el tipo de contenido correcto
+      res.setHeader("Content-Type", contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename=receipt-${expense.id}${expense.receiptExtension}`,
+      );
+
+      // Descomprimir y enviar el archivo
+      const fileContents = fs.createReadStream(compressedFilePath);
+      fileContents.pipe(zlib.createGunzip()).pipe(res);
+    } catch (error) {
+      res.status(500).json({ message: "Error al obtener el recibo", error });
     }
   },
 );
