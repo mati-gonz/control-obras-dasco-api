@@ -6,27 +6,25 @@ module.exports = {
     password: process.env.DB_PASSWORD || null,
     database: process.env.DB_NAME || "gestion_obras_db",
     host: process.env.DB_HOST || "127.0.0.1",
-    dialect: "postgres",
+    dialect: "mysql", // Cambiado a MySQL
   },
   test: {
     username: process.env.DB_USER || "matias_dasco",
     password: process.env.DB_PASSWORD || null,
     database: process.env.DB_NAME_TEST || "gestion_obras_db_test",
     host: process.env.DB_HOST || "127.0.0.1",
-    dialect: "postgres",
+    dialect: "mysql", // Cambiado a MySQL
   },
   production: {
     username: process.env.DB_USER, // Sin valores por defecto, debe estar definido en el .env de producción
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     host: process.env.DB_HOST,
-    dialect: "postgres",
+    dialect: "mysql", // Cambiado a MySQL
     dialectOptions: {
-      ssl: {
-        require: true, // Requiere SSL en producción
-        rejectUnauthorized: false, // Esto depende de tu proveedor de base de datos. Si usas AWS RDS o Heroku, generalmente se necesita `false`
-      },
+      // Opciones específicas de MySQL, como los conjuntos de caracteres o el tipo de conexión SSL si es necesario
+      charset: "utf8mb4",
     },
-    logging: false, // Desactiva el logging en producción para mejor rendimiento y seguridad
+    logging: false, // Desactiva el logging en producción
   },
 };
