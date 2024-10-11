@@ -6,6 +6,7 @@ module.exports = {
     password: process.env.DB_PASSWORD || null,
     database: process.env.DB_NAME || "gestion_obras_db",
     host: process.env.DB_HOST || "127.0.0.1",
+    port: process.env.DB_PORT || 3306, // Agregado el puerto
     dialect: "mysql", // Cambiado a MySQL
   },
   test: {
@@ -13,6 +14,7 @@ module.exports = {
     password: process.env.DB_PASSWORD || null,
     database: process.env.DB_NAME_TEST || "gestion_obras_db_test",
     host: process.env.DB_HOST || "127.0.0.1",
+    port: process.env.DB_PORT || 3306, // Agregado el puerto
     dialect: "mysql", // Cambiado a MySQL
   },
   production: {
@@ -20,11 +22,11 @@ module.exports = {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 3306, // Agregado el puerto
     dialect: "mysql", // Cambiado a MySQL
     dialectOptions: {
-      // Opciones específicas de MySQL, como los conjuntos de caracteres o el tipo de conexión SSL si es necesario
-      charset: "utf8mb4",
+      charset: "utf8mb4", // Opciones específicas de MySQL, como los conjuntos de caracteres
     },
-    logging: false, // Desactiva el logging en producción
+    logging: false, // Desactiva el logging en producción para mejor rendimiento
   },
 };
