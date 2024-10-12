@@ -30,20 +30,16 @@ router.post(
       const partId = req.params.part_id;
       const userId = req.user.id;
 
-      // 1. Obtener la partida (Part) y la obra (Work) asociadas
+      // 1. Obtener la partida (Part) y la obra (Work) asociadas en una sola consulta
       const part = await Part.findByPk(partId, {
-        include: { model: Work, as: "work" }, // Suponiendo que tienes definida la relación con el modelo Work
+        include: { model: Work }, // Usamos la relación para incluir la obra (Work)
       });
 
       if (!part) {
         return res.status(404).json({ message: "Part no encontrado" });
       }
 
-      const work = await Work.findByPk(part.workId); // Obtener la obra asociada usando el workId
-
-      if (!work) {
-        return res.status(404).json({ message: "Work no encontrado" });
-      }
+      const work = part.work; // Obtenemos la obra directamente desde la relación
 
       // 2. Convertir los nombres de la obra y de la partida a kebab-case
       const workNameKebab = toKebabCase(work.name); // Ej: "Obra de prueba" => "obra-de-prueba"
@@ -56,7 +52,7 @@ router.post(
         date,
         partId,
         subgroupId,
-        workId: work.id,
+        workId: work.id, // Obtenemos el workId directamente de la relación
         userId,
       });
 
