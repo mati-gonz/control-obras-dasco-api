@@ -9,6 +9,9 @@ require("dotenv").config(); // Cargar variables de entorno
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Confía en el primer proxy
+app.set("trust proxy", 1); // 1 para confiar en el primer proxy
+
 // Verificar el entorno de ejecución
 const isDevelopment = process.env.NODE_ENV === "development";
 
