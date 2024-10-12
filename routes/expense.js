@@ -34,6 +34,8 @@ router.post(
         userId,
       });
 
+      console.log("Gasto creado:", newExpense);
+
       const expenseId = newExpense.id; // El ID del gasto creado
 
       // Verifica que workId y partId no son undefined
