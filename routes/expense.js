@@ -1,5 +1,5 @@
 const express = require("express");
-const { Expense, Part } = require("../models");
+const { Expense, Part, Work } = require("../models");
 const verifyToken = require("../middleware/auth");
 const verifyRole = require("../middleware/role");
 const multer = require("multer");
