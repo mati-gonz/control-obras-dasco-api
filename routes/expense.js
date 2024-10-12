@@ -12,12 +12,9 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir =
       process.env.RECEIPT_STORAGE_PATH || path.join(__dirname, "../receipts/");
-
-    // Crear la carpeta si no existe
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-
     cb(null, dir);
   },
   filename: (req, file, cb) => {
@@ -25,14 +22,31 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage }).single("receipt");
 
 // Crear un nuevo gasto
 router.post(
   "/parts/:part_id/expenses",
-  verifyToken,
-  verifyRole(["admin", "user"]),
-  upload.single("receipt"),
+  (req, res, next) => {
+    verifyToken,
+      verifyRole(["admin", "user"]),
+      upload(req, res, function (err) {
+        if (err instanceof multer.MulterError) {
+          console.error("Error de Multer:", err);
+          return res
+            .status(500)
+            .json({ message: "Error al subir el archivo", error: err });
+        } else if (err) {
+          console.error("Error general:", err);
+          return res
+            .status(500)
+            .json({ message: "Error desconocido", error: err });
+        }
+
+        // Continuar con el procesamiento normal si no hay errores
+        next();
+      });
+  },
   async (req, res) => {
     const { amount, description, date, subgroupId, workId } = req.body;
     const partId = req.params.part_id;
