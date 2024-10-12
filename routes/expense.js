@@ -138,6 +138,20 @@ router.put(
         return res.status(404).json({ message: "Gasto no encontrado" });
       }
 
+      // Obtener la partida (Part) y la obra (Work) para generar la ruta en S3
+      const part = await Part.findByPk(expense.partId);
+      if (!part) {
+        return res.status(404).json({ message: "Part no encontrado" });
+      }
+      const work = await Work.findOne({ where: { id: part.workId } });
+      if (!work) {
+        return res.status(404).json({ message: "Work no encontrado" });
+      }
+
+      // Convertir los nombres de la obra y la partida a kebab-case
+      const workNameKebab = toKebabCase(work.name);
+      const partNameKebab = toKebabCase(part.name);
+
       // Si hay un archivo anterior, eliminarlo de S3 antes de subir el nuevo
       if (file) {
         if (expense.receiptUrl) {
@@ -165,16 +179,16 @@ router.put(
           }
         }
 
-        // Subir el nuevo archivo a S3
+        // Subir el nuevo archivo a S3 con los nombres de la obra y partida
         const newReceiptUrl = await uploadFileToS3(
           {
             path: compressedFilePath,
             originalname: file.originalname,
             mimetype: file.mimetype,
           },
-          expense.workId,
-          expense.partId,
-          expense.id,
+          workNameKebab, // Nombre en kebab-case de la obra
+          partNameKebab, // Nombre en kebab-case de la partida
+          expense.id, // ID del gasto
         );
 
         // Actualizar el gasto con la nueva URL del archivo
@@ -237,23 +251,16 @@ router.get(
   async (req, res) => {
     try {
       const expense = await Expense.findByPk(req.params.id);
-
       if (!expense || !expense.receiptUrl) {
-        return res
-          .status(404)
-          .json({ message: "Gasto o recibo no encontrado" });
+        return res.status(404).json({ message: "Recibo no encontrado" });
       }
 
-      // Extraer la clave del archivo de la URL del recibo
-      const fileKey = expense.receiptUrl.split(".amazonaws.com/")[1]; // Obtiene el "key" del archivo en S3
+      const fileKey = expense.receiptUrl.split(".amazonaws.com/")[1]; // Extraer la clave del archivo
+      const signedUrl = getSignedUrl(fileKey); // Obtener la URL firmada desde S3
 
-      // Generar la URL firmada para el acceso temporal
-      const signedUrl = getSignedUrl(fileKey);
-
-      // Devolver la URL firmada
       res.json({ signedUrl });
     } catch (error) {
-      res.status(500).json({ message: "Error al obtener el recibo", error });
+      res.status(500).json({ message: "Error obteniendo el recibo", error });
     }
   },
 );
