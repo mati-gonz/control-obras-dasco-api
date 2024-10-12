@@ -27,25 +27,23 @@ const upload = multer({ storage }).single("receipt");
 // Crear un nuevo gasto
 router.post(
   "/parts/:part_id/expenses",
+  verifyToken, // Aquí se ejecuta correctamente
+  verifyRole(["admin", "user"]), // Aquí también
   (req, res, next) => {
-    verifyToken,
-      verifyRole(["admin", "user"]),
-      upload(req, res, function (err) {
-        if (err instanceof multer.MulterError) {
-          console.error("Error de Multer:", err);
-          return res
-            .status(500)
-            .json({ message: "Error al subir el archivo", error: err });
-        } else if (err) {
-          console.error("Error general:", err);
-          return res
-            .status(500)
-            .json({ message: "Error desconocido", error: err });
-        }
-
-        // Continuar con el procesamiento normal si no hay errores
-        next();
-      });
+    upload(req, res, function (err) {
+      if (err instanceof multer.MulterError) {
+        console.error("Error de Multer:", err);
+        return res
+          .status(500)
+          .json({ message: "Error al subir el archivo", error: err });
+      } else if (err) {
+        console.error("Error general:", err);
+        return res
+          .status(500)
+          .json({ message: "Error desconocido", error: err });
+      }
+      next(); // Continuar con el procesamiento normal si no hay errores
+    });
   },
   async (req, res) => {
     const { amount, description, date, subgroupId, workId } = req.body;
@@ -75,7 +73,9 @@ router.post(
             .on("finish", async (err) => {
               if (err) reject(err);
 
-              receiptUrl = `${process.env.RECEIPT_STORAGE_PATH}/${path.basename(compressedFilePath)}`;
+              receiptUrl = `${process.env.RECEIPT_STORAGE_PATH}/${path.basename(
+                compressedFilePath,
+              )}`;
 
               fs.unlink(filePath, (err) => {
                 if (err)
