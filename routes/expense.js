@@ -1,5 +1,5 @@
 const express = require("express");
-const { Expense } = require("../models");
+const { Expense, Part } = require("../models");
 const verifyToken = require("../middleware/auth");
 const verifyRole = require("../middleware/role");
 const multer = require("multer");
@@ -19,18 +19,25 @@ router.post(
   upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
     try {
-      const { amount, description, date, subgroupId, workId } = req.body;
+      const { amount, description, date, subgroupId } = req.body;
       const partId = req.params.part_id;
       const userId = req.user.id;
 
-      // Crear el gasto
+      // 1. Obtener el workId usando el partId
+      const part = await Part.findByPk(partId); // Buscar el Part por su ID
+      if (!part) {
+        return res.status(404).json({ message: "Part no encontrado" });
+      }
+      const workId = part.workId; // Obtener el workId del Part encontrado
+
+      // 2. Crear el gasto con el workId obtenido
       const newExpense = await Expense.create({
         amount,
         description,
         date,
         partId,
         subgroupId,
-        workId,
+        workId, // Ahora tenemos el workId
         userId,
       });
 
@@ -48,14 +55,14 @@ router.post(
         `workId: ${workId}, partId: ${partId}, expenseId: ${expenseId}`,
       );
 
-      // Subir el archivo a S3
+      // 3. Subir el archivo a S3
       const receiptUrl = await uploadFileToS3(
         {
           path: req.file.path,
           originalname: req.file.originalname,
           mimetype: req.file.mimetype,
         },
-        workId,
+        workId, // Pasamos el workId obtenido
         partId,
         expenseId,
       );
