@@ -10,6 +10,7 @@ router.post(
   verifyToken,
   verifyRole(["admin", "user"]),
   async (req, res) => {
+    console.log("Payload recibido:", req.body);
     const { amount, description, date, subgroupId, workId, receiptUrl } =
       req.body;
     const partId = req.params.part_id;
