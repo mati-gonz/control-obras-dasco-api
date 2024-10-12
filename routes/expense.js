@@ -13,10 +13,10 @@ router.post(
     const { amount, description, date, subgroupId, workId, receiptUrl } =
       req.body;
     const partId = req.params.part_id;
-    const userId = req.user.id; // Obtener el ID del usuario autenticado desde el token
+    const userId = req.user.id;
 
     try {
-      // Crear un nuevo gasto con los datos recibidos del frontend
+      // Crear el gasto con la URL del recibo proporcionada por el frontend
       const newExpense = await Expense.create({
         amount,
         description,
@@ -25,7 +25,7 @@ router.post(
         subgroupId,
         workId,
         userId,
-        receiptUrl, // Guardar la URL del recibo directamente
+        receiptUrl, // Solo almacenamos la URL proporcionada por el frontend
       });
 
       res.status(201).json(newExpense);
@@ -76,14 +76,14 @@ router.put(
   verifyToken,
   verifyRole(["admin", "user"]),
   async (req, res) => {
-    const { amount, description, date, receiptUrl } = req.body; // Recibimos la URL del recibo si se actualiza
+    const { amount, description, date, receiptUrl } = req.body;
     try {
       const expense = await Expense.findByPk(req.params.id);
       if (!expense) {
         return res.status(404).json({ message: "Gasto no encontrado" });
       }
 
-      // Actualizamos el gasto con los datos recibidos
+      // Actualizar el gasto con los nuevos datos y la nueva URL del recibo si se ha proporcionado
       await expense.update({ amount, description, date, receiptUrl });
 
       res.json(expense);
@@ -103,6 +103,12 @@ router.delete(
       const expense = await Expense.findByPk(req.params.id);
       if (!expense) {
         return res.status(404).json({ message: "Gasto no encontrado" });
+      }
+
+      // Aquí puedes enviar una notificación al frontend para que elimine el archivo en el servidor cPanel
+      if (expense.receiptUrl) {
+        // Puedes enviar la URL al frontend para que elimine el archivo
+        // Por ejemplo, el frontend puede hacer una petición a PHP en el servidor cPanel para eliminar el archivo
       }
 
       await expense.destroy();
@@ -128,7 +134,7 @@ router.get(
           .json({ message: "Gasto o recibo no encontrado" });
       }
 
-      // Devolver la URL del recibo almacenado en la base de datos
+      // En lugar de manejar el archivo, solo devolvemos la URL del recibo
       res.json({ receiptUrl: expense.receiptUrl });
     } catch (error) {
       res.status(500).json({ message: "Error al obtener el recibo", error });
