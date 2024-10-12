@@ -9,20 +9,27 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 
-const uploadFileToS3 = async (file, workName, partName, receiptId) => {
+const uploadFileToS3 = async (file, workId, partId, expenseId) => {
+  // Verifica que los parámetros no sean undefined
+  if (!workId || !partId || !expenseId) {
+    throw new Error(
+      "Faltan parámetros para generar la clave del archivo en S3",
+    );
+  }
+
   const fileStream = fs.createReadStream(file.path);
 
+  // Construcción de la ruta (Key) del archivo en S3
   const uploadParams = {
     Bucket: "dasco-uploads",
-    Key: `${workName}/${partName}/receipt-${receiptId}${path.extname(file.originalname)}`,
+    Key: `${workId}/${partId}/receipt-${expenseId}${path.extname(file.originalname)}`, // Asegúrate de que workId, partId y expenseId tienen valores válidos
     Body: fileStream,
     ContentType: file.mimetype,
   };
 
   try {
     const data = await s3.upload(uploadParams).promise();
-    console.log(`File uploaded successfully at ${data.Location}`);
-    return data.Location; // Devuelve la URL del archivo subido
+    return data.Location; // Devuelve la URL completa del archivo en S3
   } catch (err) {
     console.error("Error uploading file: ", err);
     throw err;

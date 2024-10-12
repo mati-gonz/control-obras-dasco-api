@@ -16,18 +16,14 @@ router.post(
   "/parts/:part_id/expenses",
   verifyToken,
   verifyRole(["admin", "user"]),
-  upload.single("receipt"), // Recepción del archivo del frontend
+  upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
-    console.log("Payload recibido:", req.body);
-    const { amount, description, date, subgroupId, workId } = req.body;
-    const partId = req.params.part_id;
-    const userId = req.user.id;
-
-    const file = req.file; // Archivo recibido desde el frontend
-    let compressedFilePath = file.path; // Ruta del archivo por defecto (sin compresión)
-
     try {
-      // 1. Crear el gasto primero sin la URL del recibo
+      const { amount, description, date, subgroupId, workId } = req.body;
+      const partId = req.params.part_id;
+      const userId = req.user.id;
+
+      // Crear el gasto
       const newExpense = await Expense.create({
         amount,
         description,
@@ -38,51 +34,32 @@ router.post(
         userId,
       });
 
-      const expenseId = newExpense.id; // Obtenemos el ID del gasto recién creado
+      const expenseId = newExpense.id; // El ID del gasto creado
 
-      // Verificar si el archivo es mayor de 2MB
-      if (file.size > 2 * 1024 * 1024) {
-        // Compresión según el tipo de archivo
-        if (["image/jpeg", "image/png", "image/heic"].includes(file.mimetype)) {
-          // Comprimir imagen con sharp
-          const compressedPath = `uploads/compressed-${file.filename}.jpg`;
-          await sharp(file.path)
-            .resize(1024) // Redimensionar si es necesario
-            .jpeg({ quality: 80 }) // Ajustar la calidad de la compresión
-            .toFile(compressedPath);
-          compressedFilePath = compressedPath;
-        } else if (file.mimetype === "application/pdf") {
-          // Comprimir PDFs u otros archivos grandes con zlib
-          const compressedPath = `uploads/compressed-${file.filename}.pdf.gz`;
-          const fileContents = fs.readFileSync(file.path);
-          const compressed = zlib.gzipSync(fileContents);
-          fs.writeFileSync(compressedPath, compressed);
-          compressedFilePath = compressedPath;
-        }
+      // Verifica que workId y partId no son undefined
+      if (!workId || !partId || !expenseId) {
+        return res
+          .status(400)
+          .json({ message: "Faltan parámetros para la creación del archivo" });
       }
+      console.log(
+        `workId: ${workId}, partId: ${partId}, expenseId: ${expenseId}`,
+      );
 
-      // 2. Subir el archivo a S3 utilizando el expenseId
+      // Subir el archivo a S3
       const receiptUrl = await uploadFileToS3(
         {
-          path: compressedFilePath,
-          originalname: file.originalname,
-          mimetype: file.mimetype,
+          path: req.file.path,
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
         },
         workId,
         partId,
-        expenseId, // Usamos expenseId en lugar de userId
+        expenseId,
       );
 
-      // 3. Actualizar el gasto con la URL del recibo
-      await newExpense.update({
-        receiptUrl,
-      });
-
-      // Eliminar el archivo temporal del servidor
-      fs.unlinkSync(file.path);
-      if (compressedFilePath !== file.path) {
-        fs.unlinkSync(compressedFilePath);
-      }
+      // Actualizar el gasto con la URL del recibo
+      await newExpense.update({ receiptUrl });
 
       res.status(201).json(newExpense);
     } catch (error) {
