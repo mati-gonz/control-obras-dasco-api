@@ -251,6 +251,8 @@ router.get(
   async (req, res) => {
     try {
       const expense = await Expense.findByPk(req.params.id);
+      console.log("Expense:", expense);
+
       if (!expense || !expense.receiptUrl) {
         return res.status(404).json({ message: "Recibo no encontrado" });
       }
@@ -258,7 +260,11 @@ router.get(
       const fileKey = expense.receiptUrl.split(".amazonaws.com/")[1]; // Extraer la clave del archivo
       const signedUrl = getSignedUrl(fileKey); // Obtener la URL firmada desde S3
 
-      res.json({ signedUrl });
+      // Obtener la extensión del archivo
+      const fileExtension = expense.receiptUrl.split(".").pop(); // Extrae la extensión del archivo
+
+      // Devolver la URL firmada y la extensión del archivo
+      res.json({ signedUrl, fileExtension });
     } catch (error) {
       res.status(500).json({ message: "Error obteniendo el recibo", error });
     }
