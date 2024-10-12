@@ -22,15 +22,15 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage }).single("receipt");
+const upload = multer({ storage });
 
 // Crear un nuevo gasto
 router.post(
   "/parts/:part_id/expenses",
-  verifyToken, // Aquí se ejecuta correctamente
-  verifyRole(["admin", "user"]), // Aquí también
+  verifyToken,
+  verifyRole(["admin", "user"]),
   (req, res, next) => {
-    upload(req, res, function (err) {
+    upload.single("receipt")(req, res, function (err) {
       if (err instanceof multer.MulterError) {
         console.error("Error de Multer:", err);
         return res
@@ -42,13 +42,13 @@ router.post(
           .status(500)
           .json({ message: "Error desconocido", error: err });
       }
-      next(); // Continuar con el procesamiento normal si no hay errores
+      next();
     });
   },
   async (req, res) => {
     const { amount, description, date, subgroupId, workId } = req.body;
     const partId = req.params.part_id;
-    const userId = req.user.id; // Obtener el ID del usuario autenticado desde el token
+    const userId = req.user.id;
 
     try {
       let receiptUrl = null;
@@ -56,7 +56,8 @@ router.post(
 
       if (req.file) {
         const filePath = path.join(
-          process.env.RECEIPT_STORAGE_PATH,
+          process.env.RECEIPT_STORAGE_PATH ||
+            path.join(__dirname, "../receipts/"),
           req.file.filename,
         );
         const compressedFilePath = `${filePath}.gz`;
@@ -72,11 +73,7 @@ router.post(
             .pipe(writeStream)
             .on("finish", async (err) => {
               if (err) reject(err);
-
-              receiptUrl = `${process.env.RECEIPT_STORAGE_PATH}/${path.basename(
-                compressedFilePath,
-              )}`;
-
+              receiptUrl = `${process.env.RECEIPT_STORAGE_PATH || path.join(__dirname, "../receipts/")}/${path.basename(compressedFilePath)}`;
               fs.unlink(filePath, (err) => {
                 if (err)
                   console.error("Error al eliminar el archivo original", err);
@@ -93,7 +90,7 @@ router.post(
         partId,
         subgroupId,
         workId,
-        userId, // Guardar el ID del usuario autenticado
+        userId,
         receiptUrl,
         receiptExtension,
       });
@@ -249,7 +246,22 @@ router.post(
   "/expenses/:id/upload",
   verifyToken,
   verifyRole(["admin", "user"]),
-  upload.single("receipt"),
+  (req, res, next) => {
+    upload.single("receipt")(req, res, function (err) {
+      if (err instanceof multer.MulterError) {
+        console.error("Error de Multer:", err);
+        return res
+          .status(500)
+          .json({ message: "Error al subir el archivo", error: err });
+      } else if (err) {
+        console.error("Error general:", err);
+        return res
+          .status(500)
+          .json({ message: "Error desconocido", error: err });
+      }
+      next();
+    });
+  },
   async (req, res) => {
     try {
       const expense = await Expense.findByPk(req.params.id);
@@ -258,12 +270,12 @@ router.post(
       }
 
       const filePath = path.join(
-        process.env.RECEIPT_STORAGE_PATH,
+        process.env.RECEIPT_STORAGE_PATH ||
+          path.join(__dirname, "../receipts/"),
         req.file.filename,
       );
       const compressedFilePath = `${filePath}.gz`;
 
-      // Comprimir el archivo
       const fileContents = fs.createReadStream(filePath);
       const writeStream = fs.createWriteStream(compressedFilePath);
       const gzip = zlib.createGzip();
@@ -278,11 +290,9 @@ router.post(
               .json({ message: "Error al comprimir el archivo", error: err });
           }
 
-          // Guardar la URL del archivo comprimido en la base de datos
-          const receiptUrl = `${process.env.RECEIPT_STORAGE_PATH}/${path.basename(compressedFilePath)}`;
+          const receiptUrl = `${process.env.RECEIPT_STORAGE_PATH || path.join(__dirname, "../receipts/")}/${path.basename(compressedFilePath)}`;
           await expense.update({ receiptUrl });
 
-          // Eliminar el archivo original no comprimido si ya no es necesario
           fs.unlink(filePath, (err) => {
             if (err)
               console.error("Error al eliminar el archivo original", err);
