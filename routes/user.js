@@ -156,20 +156,6 @@ router.post("/refresh-token", async (req, res) => {
   }
 });
 
-// Ruta para obtener los detalles del usuario autenticado
-router.get("/me", verifyToken, async (req, res) => {
-  try {
-    const user = await User.findByPk(req.user.userId, {
-      attributes: { exclude: ["password"] },
-    });
-    if (!user)
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener el usuario", error });
-  }
-});
-
 // Obtener todos los usuarios con paginación (solo admin)
 router.get("/", verifyToken, verifyRole(["admin"]), async (req, res) => {
   const { page = 1, limit = 10 } = req.query; // Paginación por defecto
