@@ -26,9 +26,8 @@ router.post(
   upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
     try {
-      const { amount, description, date, subgroupId } = req.body;
+      const { amount, description, date, subgroupId, userId } = req.body; // userId se puede obtener aquí
       const partId = req.params.part_id;
-      const userId = req.user.id;
 
       // 1. Obtener la partida (Part) y la obra (Work)
       const part = await Part.findByPk(partId);
@@ -51,7 +50,7 @@ router.post(
         partId,
         subgroupId,
         workId: work.id, // Obtenemos el workId directamente de la relación
-        userId,
+        userId: userId || req.user.id, // Si no se envía explícitamente, usar el ID del token
       });
 
       console.log("Gasto creado:", newExpense);
