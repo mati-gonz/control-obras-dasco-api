@@ -1,4 +1,5 @@
 const express = require("express");
+const bodyParser = require("body-parser");
 const { sequelize } = require("./models");
 const morgan = require("morgan");
 const helmet = require("helmet");
@@ -11,6 +12,14 @@ const PORT = process.env.PORT || 3000;
 
 // Confía en el primer proxy
 app.set("trust proxy", 1); // 1 para confiar en el primer proxy
+
+// Configurar el límite de tamaño para el parsing de JSON y URL encoded
+app.use(bodyParser.json({ limit: "10mb" })); // Límite de 10 MB para JSON
+app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
+
+// O si estás usando `express.json()` directamente sin body-parser:
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Verificar el entorno de ejecución
 const isDevelopment = process.env.NODE_ENV === "development";

@@ -5,7 +5,6 @@ const verifyRole = require("../middleware/role");
 const multer = require("multer");
 const sharp = require("sharp");
 const zlib = require("zlib");
-const fs = require("fs");
 const { uploadFileToS3, deleteFileFromS3, getSignedUrl } = require("../s3"); // Tu archivo s3.js
 const router = express.Router();
 
@@ -17,7 +16,10 @@ const toKebabCase = (str) => {
 };
 
 // Configurar multer para manejar la subida de archivos
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // Límite de 10 MB por archivo
+});
 
 router.post(
   "/parts/:part_id/expenses",
@@ -26,7 +28,6 @@ router.post(
   upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
     try {
-      console.log("Archivo recibido:", req.file); // Verifica si se está recibiendo un archivo
       // Asegúrate de que el archivo se recibió antes de continuar
       if (!req.file) {
         return res
@@ -65,17 +66,62 @@ router.post(
 
       // Verifica si hay archivo recibido
       if (req.file) {
-        // Subir el archivo a S3 usando el buffer directamente desde la memoria
-        const receiptUrl = await uploadFileToS3(
-          {
-            buffer: req.file.buffer,
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype,
-          },
-          workNameKebab,
-          partNameKebab,
-          expenseId,
-        );
+        let receiptUrl;
+
+        // Si el archivo es mayor a 2 MB, aplicamos compresión
+        if (req.file.size > 2 * 1024 * 1024) {
+          // Archivos mayores de 2 MB
+          if (
+            ["image/jpeg", "image/png", "image/heic"].includes(
+              req.file.mimetype,
+            )
+          ) {
+            // Comprimir imagen usando sharp
+            const buffer = await sharp(req.file.buffer)
+              .resize(1024)
+              .jpeg({ quality: 80 })
+              .toBuffer();
+
+            // Subir el archivo comprimido a S3
+            receiptUrl = await uploadFileToS3(
+              {
+                buffer,
+                originalname: req.file.originalname,
+                mimetype: req.file.mimetype,
+              },
+              workNameKebab,
+              partNameKebab,
+              expenseId,
+            );
+          } else if (req.file.mimetype === "application/pdf") {
+            // Comprimir PDF usando zlib
+            const compressedBuffer = zlib.gzipSync(req.file.buffer);
+
+            // Subir el archivo comprimido a S3
+            receiptUrl = await uploadFileToS3(
+              {
+                buffer: compressedBuffer,
+                originalname: req.file.originalname,
+                mimetype: req.file.mimetype,
+              },
+              workNameKebab,
+              partNameKebab,
+              expenseId,
+            );
+          }
+        } else {
+          // Si el archivo es menor a 2 MB, subir directamente sin compresión
+          receiptUrl = await uploadFileToS3(
+            {
+              buffer: req.file.buffer,
+              originalname: req.file.originalname,
+              mimetype: req.file.mimetype,
+            },
+            workNameKebab,
+            partNameKebab,
+            expenseId,
+          );
+        }
 
         // Actualizar el gasto con la URL del recibo
         await newExpense.update({ receiptUrl });
@@ -132,7 +178,6 @@ router.get(
 );
 
 // Actualizar un gasto
-// Actualizar un gasto
 router.put(
   "/:id",
   verifyToken,
@@ -141,7 +186,6 @@ router.put(
   async (req, res) => {
     const { amount, description, date } = req.body;
     const file = req.file; // Archivo recibido desde el frontend
-    let compressedFilePath = file ? file.path : null;
 
     try {
       const expense = await Expense.findByPk(req.params.id);
@@ -171,50 +215,66 @@ router.put(
         }
 
         // Comprimir el archivo si es necesario y luego subir a S3
+        let receiptUrl;
         if (file.size > 2 * 1024 * 1024) {
+          // Archivos mayores de 2 MB
           if (
             ["image/jpeg", "image/png", "image/heic"].includes(file.mimetype)
           ) {
-            const compressedPath = `uploads/compressed-${file.filename}.jpg`;
-            await sharp(file.path)
+            // Comprimir imagen usando sharp
+            const buffer = await sharp(file.buffer)
               .resize(1024)
               .jpeg({ quality: 80 })
-              .toFile(compressedPath);
-            compressedFilePath = compressedPath;
-          } else if (file.mimetype === "application/pdf") {
-            const compressedPath = `uploads/compressed-${file.filename}.pdf.gz`;
-            const fileContents = fs.readFileSync(file.path);
-            const compressed = zlib.gzipSync(fileContents);
-            fs.writeFileSync(compressedPath, compressed);
-            compressedFilePath = compressedPath;
-          }
-        }
+              .toBuffer();
 
-        // Subir el nuevo archivo a S3 con los nombres de la obra y partida
-        const newReceiptUrl = await uploadFileToS3(
-          {
-            path: compressedFilePath || file.path, // Usa el archivo comprimido o el archivo original
-            originalname: file.originalname,
-            mimetype: file.mimetype,
-          },
-          workNameKebab, // Nombre en kebab-case de la obra
-          partNameKebab, // Nombre en kebab-case de la partida
-          expense.id, // ID del gasto
-        );
+            // Subir el archivo comprimido a S3
+            receiptUrl = await uploadFileToS3(
+              {
+                buffer,
+                originalname: file.originalname,
+                mimetype: file.mimetype,
+              },
+              workNameKebab,
+              partNameKebab,
+              expense.id,
+            );
+          } else if (file.mimetype === "application/pdf") {
+            // Comprimir PDF usando zlib
+            const compressedBuffer = zlib.gzipSync(file.buffer);
+
+            // Subir el archivo comprimido a S3
+            receiptUrl = await uploadFileToS3(
+              {
+                buffer: compressedBuffer,
+                originalname: file.originalname,
+                mimetype: file.mimetype,
+              },
+              workNameKebab,
+              partNameKebab,
+              expense.id,
+            );
+          }
+        } else {
+          // Si el archivo es menor a 2 MB, subir directamente sin compresión
+          receiptUrl = await uploadFileToS3(
+            {
+              buffer: file.buffer,
+              originalname: file.originalname,
+              mimetype: file.mimetype,
+            },
+            workNameKebab,
+            partNameKebab,
+            expense.id,
+          );
+        }
 
         // Actualizar el gasto con la nueva URL del archivo
         await expense.update({
           amount,
           description,
           date,
-          receiptUrl: newReceiptUrl, // Actualiza la URL del archivo en la base de datos
+          receiptUrl, // Actualiza la URL del archivo en la base de datos
         });
-
-        // Eliminar archivos temporales
-        fs.unlinkSync(file.path);
-        if (compressedFilePath && compressedFilePath !== file.path) {
-          fs.unlinkSync(compressedFilePath);
-        }
       } else {
         // Si no hay nuevo archivo, simplemente actualizar los otros campos
         await expense.update({ amount, description, date });
