@@ -270,7 +270,9 @@ router.get(
       }
 
       const fileKey = expense.receiptUrl.split(".amazonaws.com/")[1]; // Extraer la clave del archivo
-      const signedUrl = getSignedUrl(fileKey); // Obtener la URL firmada desde S3
+
+      // Obtener la URL firmada desde S3. Asegúrate de usar "await" ya que getSignedUrl es asíncrona
+      const signedUrl = await getSignedUrl(fileKey); // Aquí estaba el problema: falta await
 
       // Obtener la extensión del archivo
       const fileExtension = expense.receiptUrl.split(".").pop(); // Extrae la extensión del archivo
@@ -278,6 +280,7 @@ router.get(
       // Devolver la URL firmada y la extensión del archivo
       res.json({ signedUrl, fileExtension });
     } catch (error) {
+      console.error("Error obteniendo el recibo:", error);
       res.status(500).json({ message: "Error obteniendo el recibo", error });
     }
   },
