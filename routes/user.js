@@ -194,18 +194,48 @@ router.get("/", verifyToken, verifyRole(["admin"]), async (req, res) => {
   }
 });
 
-// Ruta para obtener detalles de un usuario específico junto con sus obras (solo admin)
-router.get("/:id", verifyToken, verifyRole(["admin"]), async (req, res) => {
+// Ruta para obtener detalles de un usuario específico junto con sus obras
+router.get("/:id", verifyToken, async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ["password"] }, // Excluir contraseña
-      include: { model: Work, as: "works" },
-    });
-    if (!user)
-      return res.status(404).json({ message: "Usuario no encontrado" });
-    res.json({ data: user });
+    const userId = parseInt(req.params.id);
+
+    // Caso 1: Si el usuario está intentando acceder a su propio perfil
+    if (req.user.userId === userId) {
+      const user = await User.findByPk(userId, {
+        attributes: { exclude: ["password"] }, // Excluir la contraseña
+        include: { model: Work, as: "works" },
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      return res.json({ data: user });
+    }
+
+    // Caso 2: Si el usuario está intentando acceder al perfil de otro usuario, verificar si es admin
+    if (req.user.role === "admin") {
+      const user = await User.findByPk(userId, {
+        attributes: { exclude: ["password"] }, // Excluir la contraseña
+        include: { model: Work, as: "works" },
+      });
+
+      if (!user) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+
+      return res.json({ data: user });
+    }
+
+    // Caso 3: Si el usuario no es admin y está intentando acceder al perfil de otro usuario, bloquear la acción
+    return res
+      .status(403)
+      .json({ message: "No tienes permiso para acceder a este perfil." });
   } catch (error) {
-    res.status(500).json({ message: "Error al obtener el usuario", error });
+    console.error("Error al obtener el usuario:", error);
+    return res
+      .status(500)
+      .json({ message: "Error al obtener el usuario.", error });
   }
 });
 
