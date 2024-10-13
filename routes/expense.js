@@ -53,8 +53,6 @@ router.post(
         userId: userId || req.user.id, // Si no se envía explícitamente, usar el ID del token
       });
 
-      console.log("Gasto creado:", newExpense);
-
       const expenseId = newExpense.id; // El ID del gasto creado
 
       // Verifica que los valores no son undefined
@@ -139,7 +137,6 @@ router.put(
   async (req, res) => {
     const { amount, description, date } = req.body;
     const file = req.file; // Archivo recibido desde el frontend
-    console.log(file);
     let compressedFilePath = file ? file.path : null;
 
     try {
@@ -164,12 +161,9 @@ router.put(
 
       // Si hay un archivo anterior, eliminarlo de S3 antes de subir el nuevo
       if (file) {
-        console.log(expense.receiptUrl);
         if (expense.receiptUrl) {
           // Llama a la función de eliminación del archivo en S3
-          await deleteFileFromS3(expense.receiptUrl).then(() =>
-            console.log("Archivo anterior eliminado de S3"),
-          );
+          await deleteFileFromS3(expense.receiptUrl);
         }
 
         // Comprimir el archivo si es necesario y luego subir a S3

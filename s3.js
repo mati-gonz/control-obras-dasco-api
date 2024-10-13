@@ -54,7 +54,6 @@ const deleteFileFromS3 = async (fileUrl) => {
 
     // Usamos el comando DeleteObjectCommand para eliminar el archivo
     await s3Client.send(new DeleteObjectCommand(deleteParams));
-    console.log(`Archivo eliminado de S3: ${fileKey}`);
   } catch (error) {
     console.error("Error eliminando archivo de S3:", error);
   }
