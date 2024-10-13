@@ -132,7 +132,7 @@ router.get(
 // Actualizar un gasto
 // Actualizar un gasto
 router.put(
-  "/expenses/:id",
+  "/:id",
   verifyToken,
   verifyRole(["admin", "user"]),
   upload.single("receipt"), // Añadimos el middleware para manejar archivos en la actualización
