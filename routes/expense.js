@@ -17,7 +17,7 @@ const toKebabCase = (str) => {
 };
 
 // Configurar multer para manejar la subida de archivos
-const upload = multer({ dest: "uploads/" });
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.post(
   "/parts/:part_id/expenses",
@@ -26,56 +26,52 @@ router.post(
   upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
     try {
-      const { amount, description, date, subgroupId, userId } = req.body; // userId se puede obtener aquí
+      const { amount, description, date, subgroupId, userId } = req.body;
       const partId = req.params.part_id;
 
-      // 1. Obtener la partida (Part) y la obra (Work)
       const part = await Part.findByPk(partId);
       if (!part) {
         return res.status(404).json({ message: "Part no encontrado" });
       }
+
       const work = await Work.findOne({ where: { id: part.workId } });
       if (!work) {
         return res.status(404).json({ message: "Work no encontrado" });
       }
-      // 2. Convertir los nombres de la obra y de la partida a kebab-case
-      const workNameKebab = toKebabCase(work.name); // Ej: "Obra de prueba" => "obra-de-prueba"
-      const partNameKebab = toKebabCase(part.name); // Ej: "Partida inicial" => "partida-inicial"
 
-      // 3. Crear el gasto con el workId obtenido
+      const workNameKebab = toKebabCase(work.name);
+      const partNameKebab = toKebabCase(part.name);
+
+      // Crear el gasto
       const newExpense = await Expense.create({
         amount,
         description,
         date,
         partId,
         subgroupId,
-        workId: work.id, // Obtenemos el workId directamente de la relación
-        userId: userId || req.user.id, // Si no se envía explícitamente, usar el ID del token
+        workId: work.id,
+        userId: userId || req.user.id,
       });
 
-      const expenseId = newExpense.id; // El ID del gasto creado
+      const expenseId = newExpense.id;
 
-      // Verifica que los valores no son undefined
-      if (!workNameKebab || !partNameKebab || !expenseId) {
-        return res
-          .status(400)
-          .json({ message: "Faltan parámetros para la creación del archivo" });
+      // Verifica si hay archivo recibido
+      if (req.file) {
+        // Subir el archivo a S3 usando el buffer directamente desde la memoria
+        const receiptUrl = await uploadFileToS3(
+          {
+            buffer: req.file.buffer,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+          },
+          workNameKebab,
+          partNameKebab,
+          expenseId,
+        );
+
+        // Actualizar el gasto con la URL del recibo
+        await newExpense.update({ receiptUrl });
       }
-
-      // 4. Subir el archivo a S3 con la ruta formateada usando los nombres de la obra y partida
-      const receiptUrl = await uploadFileToS3(
-        {
-          path: req.file.path,
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-        },
-        workNameKebab, // Usamos el nombre en kebab-case de la obra
-        partNameKebab, // Usamos el nombre en kebab-case de la partida
-        expenseId,
-      );
-
-      // Actualizar el gasto con la URL del recibo
-      await newExpense.update({ receiptUrl });
 
       res.status(201).json(newExpense);
     } catch (error) {
