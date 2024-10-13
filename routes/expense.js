@@ -1,5 +1,5 @@
 const express = require("express");
-const { Expense, Part, Work } = require("../models");
+const { Expense, Part, Work, User } = require("../models");
 const verifyToken = require("../middleware/auth");
 const verifyRole = require("../middleware/role");
 const multer = require("multer");
@@ -95,7 +95,15 @@ router.get(
   async (req, res) => {
     const partId = req.params.part_id;
     try {
-      const expenses = await Expense.findAll({ where: { partId } });
+      const expenses = await Expense.findAll({
+        where: { partId },
+        include: [
+          {
+            model: User, // Incluimos el modelo User
+            attributes: ["name"], // Solo traemos el atributo 'name'
+          },
+        ],
+      });
       res.json(expenses);
     } catch (error) {
       res.status(500).json({ message: "Error al obtener los gastos", error });

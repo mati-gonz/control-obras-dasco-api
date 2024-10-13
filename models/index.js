@@ -26,6 +26,10 @@ Part.belongsTo(Work, { foreignKey: "workId" });
 Part.hasMany(Expense, { foreignKey: "partId" });
 Expense.belongsTo(Part, { foreignKey: "partId" });
 
+// Relación entre Gasto (Expense) y Usuario (User)
+User.hasMany(Expense, { foreignKey: "userId" });
+Expense.belongsTo(User, { foreignKey: "userId" });
+
 module.exports = {
   sequelize,
   User,
