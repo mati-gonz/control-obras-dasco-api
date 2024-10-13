@@ -130,6 +130,7 @@ router.get(
 );
 
 // Actualizar un gasto
+// Actualizar un gasto
 router.put(
   "/expenses/:id",
   verifyToken,
@@ -139,6 +140,7 @@ router.put(
     const { amount, description, date } = req.body;
     const file = req.file; // Archivo recibido desde el frontend
     let compressedFilePath = file ? file.path : null;
+
     try {
       const expense = await Expense.findByPk(req.params.id);
       if (!expense) {
@@ -189,7 +191,7 @@ router.put(
         // Subir el nuevo archivo a S3 con los nombres de la obra y partida
         const newReceiptUrl = await uploadFileToS3(
           {
-            path: compressedFilePath,
+            path: compressedFilePath || file.path, // Usa el archivo comprimido o el archivo original
             originalname: file.originalname,
             mimetype: file.mimetype,
           },
@@ -203,7 +205,7 @@ router.put(
           amount,
           description,
           date,
-          receiptUrl: newReceiptUrl,
+          receiptUrl: newReceiptUrl, // Actualiza la URL del archivo en la base de datos
         });
 
         // Eliminar archivos temporales
@@ -258,7 +260,6 @@ router.get(
   async (req, res) => {
     try {
       const expense = await Expense.findByPk(req.params.id);
-      console.log("Expense:", expense);
 
       if (!expense || !expense.receiptUrl) {
         return res.status(404).json({ message: "Recibo no encontrado" });
