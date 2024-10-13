@@ -26,6 +26,14 @@ router.post(
   upload.single("receipt"), // Recepción del archivo
   async (req, res) => {
     try {
+      console.log("Archivo recibido:", req.file); // Verifica si se está recibiendo un archivo
+      // Asegúrate de que el archivo se recibió antes de continuar
+      if (!req.file) {
+        return res
+          .status(400)
+          .json({ message: "No se recibió ningún archivo" });
+      }
+
       const { amount, description, date, subgroupId, userId } = req.body;
       const partId = req.params.part_id;
 

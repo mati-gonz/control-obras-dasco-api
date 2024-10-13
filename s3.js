@@ -7,7 +7,6 @@ const {
 const {
   getSignedUrl: getSignedUrlV3,
 } = require("@aws-sdk/s3-request-presigner");
-const fs = require("fs");
 const path = require("path");
 
 // Inicializamos el cliente S3
@@ -21,13 +20,11 @@ const uploadFileToS3 = async (file, workId, partId, expenseId) => {
     );
   }
 
-  const fileStream = fs.createReadStream(file.path);
-
   // Parámetros de la carga
   const uploadParams = {
     Bucket: "dasco-uploads",
     Key: `${workId}/${partId}/receipt-${expenseId}${path.extname(file.originalname)}`, // Generamos la key en S3
-    Body: fileStream,
+    Body: file.buffer, // Usamos el buffer directamente desde la memoria
     ContentType: file.mimetype,
   };
 
