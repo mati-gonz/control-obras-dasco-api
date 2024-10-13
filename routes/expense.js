@@ -139,6 +139,7 @@ router.put(
   async (req, res) => {
     const { amount, description, date } = req.body;
     const file = req.file; // Archivo recibido desde el frontend
+    console.log(file);
     let compressedFilePath = file ? file.path : null;
 
     try {
@@ -163,9 +164,12 @@ router.put(
 
       // Si hay un archivo anterior, eliminarlo de S3 antes de subir el nuevo
       if (file) {
+        console.log(expense.receiptUrl);
         if (expense.receiptUrl) {
           // Llama a la función de eliminación del archivo en S3
-          await deleteFileFromS3(expense.receiptUrl);
+          await deleteFileFromS3(expense.receiptUrl).then(() =>
+            console.log("Archivo anterior eliminado de S3"),
+          );
         }
 
         // Comprimir el archivo si es necesario y luego subir a S3
