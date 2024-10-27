@@ -3,7 +3,6 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // Crear la tabla Transfers
     await queryInterface.createTable("Transfers", {
       id: {
         type: Sequelize.INTEGER,
@@ -25,7 +24,6 @@ module.exports = {
         allowNull: true,
       },
       adminId: {
-        // ID del administrador que realiza la transferencia
         type: Sequelize.INTEGER,
         references: {
           model: "Users",
@@ -33,18 +31,15 @@ module.exports = {
         },
         onUpdate: "CASCADE",
         onDelete: "SET NULL",
-        allowNull: false,
       },
       userId: {
-        // ID del usuario que recibe la transferencia
         type: Sequelize.INTEGER,
         references: {
           model: "Users",
           key: "id",
         },
         onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-        allowNull: false,
+        onDelete: "SET NULL", // Cambiar a SET NULL para pruebas
       },
       workId: {
         type: Sequelize.INTEGER,
@@ -53,8 +48,7 @@ module.exports = {
           key: "id",
         },
         onUpdate: "CASCADE",
-        onDelete: "CASCADE",
-        allowNull: false,
+        onDelete: "SET NULL", // Cambiar a SET NULL para pruebas
       },
       createdAt: {
         type: Sequelize.DATE,
