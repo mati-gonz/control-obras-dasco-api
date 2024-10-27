@@ -1,10 +1,10 @@
-// Descripción: Este archivo se encarga de definir las relaciones entre los modelos de la base de datos.
 const sequelize = require("../config/database");
 const User = require("./user");
 const Work = require("./work");
 const Subgroup = require("./subgroup");
 const Part = require("./part");
 const Expense = require("./expense");
+const Transfer = require("./transfer"); // Importar el modelo Transfer
 
 // Relación Usuario - Obras (Un usuario puede tener muchas obras)
 User.hasMany(Work, { foreignKey: "adminId", as: "works" });
@@ -30,6 +30,21 @@ Expense.belongsTo(Part, { foreignKey: "partId" });
 User.hasMany(Expense, { foreignKey: "userId" });
 Expense.belongsTo(User, { foreignKey: "userId" });
 
+// Nuevas asociaciones para Transferencias
+User.hasMany(Transfer, { foreignKey: "userId", as: "receivedTransfers" }); // Usuario que recibe
+Transfer.belongsTo(User, { foreignKey: "userId", as: "receiver" });
+
+User.hasMany(Transfer, { foreignKey: "adminId", as: "madeTransfers" }); // Usuario que realiza la transferencia
+Transfer.belongsTo(User, { foreignKey: "adminId", as: "admin" });
+
+// Relación Obras - Transferencias (Una obra puede tener muchas transferencias)
+Work.hasMany(Transfer, { foreignKey: "workId", as: "Transfers" }); // Agregar alias "Transfers"
+Transfer.belongsTo(Work, { foreignKey: "workId" });
+
+// Relación Obras - Gastos (Una obra puede tener muchos gastos)
+Work.hasMany(Expense, { foreignKey: "workId", as: "Expenses" }); // Agregar alias "Expenses"
+Expense.belongsTo(Work, { foreignKey: "workId" });
+
 module.exports = {
   sequelize,
   User,
@@ -37,4 +52,5 @@ module.exports = {
   Subgroup,
   Part,
   Expense,
+  Transfer,
 };
